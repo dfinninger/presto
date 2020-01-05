@@ -289,7 +289,8 @@ public abstract class AbstractTestHiveFileSystem
         assertTrue(fs.getFileStatus(tablePath).isDirectory(), "tablePath should be considered a directory");
         assertTrue(fs.getFileStatus(filePath).isFile(), "filePath should be considered a file");
         assertFalse(fs.getFileStatus(filePath).isDirectory(), "filePath should not be considered a directory");
-        assertFalse(fs.exists(new Path(basePath, "foo-" + UUID.randomUUID())), "foo-random path should be found not to exist");
+        assertFalse(fs.exists(new Path(basePath, "foo-" + UUID.randomUUID())), "foo-random path should be found not to exist"); // TODO tmp
+        assertFalse(fs.exists(new Path(basePath, "fooabc")), "fooabc path should be found not to exist"); // TODO tmp
         assertFalse(fs.exists(new Path(basePath, "foo")), "foo path should be found not to exist");
     }
 

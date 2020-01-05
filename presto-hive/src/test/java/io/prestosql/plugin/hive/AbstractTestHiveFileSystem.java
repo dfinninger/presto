@@ -285,10 +285,12 @@ public abstract class AbstractTestHiveFileSystem
         Path filePath = new Path(tablePath, "test1.csv");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
 
-        assertTrue(fs.getFileStatus(basePath).isDirectory());
-        assertTrue(fs.getFileStatus(tablePath).isDirectory());
-        assertFalse(fs.getFileStatus(filePath).isDirectory());
-        assertFalse(fs.exists(new Path(basePath, "foo")));
+        assertTrue(fs.getFileStatus(basePath).isDirectory(), "basePath should be considered a directory");
+        assertTrue(fs.getFileStatus(tablePath).isDirectory(), "tablePath should be considered a directory");
+        assertTrue(fs.getFileStatus(filePath).isFile(), "filePath should be considered a file");
+        assertFalse(fs.getFileStatus(filePath).isDirectory(), "filePath should not be considered a directory");
+        assertFalse(fs.exists(new Path(basePath, "foo-" + UUID.randomUUID())), "foo-random path should be found not to exist");
+        assertFalse(fs.exists(new Path(basePath, "foo")), "foo path should be found not to exist");
     }
 
     @Test

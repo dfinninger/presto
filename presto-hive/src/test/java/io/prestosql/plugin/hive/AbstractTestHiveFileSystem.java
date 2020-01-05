@@ -283,6 +283,12 @@ public abstract class AbstractTestHiveFileSystem
         Path basePath = getBasePath();
         Path tablePath = new Path(basePath, "presto_test_external_fs");
         Path filePath = new Path(tablePath, "test1.csv");
+
+        System.out.println("basePath = " + basePath);
+        System.out.println("tablePath = " + tablePath);
+        System.out.println("filePath = " + filePath);
+        System.out.println("foo = " + new Path(basePath, "foo"));
+
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
 
         assertTrue(fs.getFileStatus(basePath).isDirectory(), "basePath should be considered a directory");

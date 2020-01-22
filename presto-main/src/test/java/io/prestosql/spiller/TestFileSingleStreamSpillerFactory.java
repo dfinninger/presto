@@ -147,6 +147,85 @@ public class TestFileSingleStreamSpillerFactory
         assertEquals(listFiles(spillPath2.toPath()).size(), 0);
     }
 
+    @Test
+    public void testCacheInvalidatedOnBadDisk()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(BIGINT);
+        List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
+        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
+                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
+                blockEncodingSerde,
+                new SpillerStats(),
+                spillPaths,
+                1.0,
+                false,
+                false);
+
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+
+        Page page = buildPage();
+        List<SingleStreamSpiller> spillers = new ArrayList<>();
+        for (int i = 0; i < 2; ++i) {
+            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+
+            if (i == 1) {
+                // Set second spiller path to read-only after initialization to emulate a disk failing during runtime
+                setPosixFilePermissions(spillPath2.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ));
+            }
+
+            try {
+                getUnchecked(singleStreamSpiller.spill(page));
+            }
+            catch (Exception ignored) {}
+            spillers.add(singleStreamSpiller);
+        }
+
+        assertEquals(spillerFactory.spillPathHealthCache.size(), 0, "cache still contains entries");
+
+        // restore permissions to allow cleanup
+        setPosixFilePermissions(spillPath2.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+        spillers.forEach(SingleStreamSpiller::close);
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+    }
+
+    @Test
+    public void testCacheFull()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(BIGINT);
+        List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
+        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
+                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
+                blockEncodingSerde,
+                new SpillerStats(),
+                spillPaths,
+                1.0,
+                false,
+                false);
+
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+
+        Page page = buildPage();
+        List<SingleStreamSpiller> spillers = new ArrayList<>();
+        for (int i = 0; i < 2; ++i) {
+            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+            getUnchecked(singleStreamSpiller.spill(page));
+            spillers.add(singleStreamSpiller);
+        }
+
+        assertEquals(spillerFactory.spillPathHealthCache.size(), 2, "cache contains no entries");
+
+        // restore permissions to allow cleanup
+        setPosixFilePermissions(spillPath2.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+        spillers.forEach(SingleStreamSpiller::close);
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+    }
+
     private Page buildPage()
     {
         BlockBuilder col1 = BIGINT.createBlockBuilder(null, 1);

@@ -78,7 +78,9 @@ public class FileSingleStreamSpillerFactory
     private final double maxUsedSpaceThreshold;
     private final boolean spillEncryptionEnabled;
     private int roundRobinIndex;
-    private final LoadingCache<Path, Boolean> spillPathHealthCache;
+
+    @VisibleForTesting
+    final LoadingCache<Path, Boolean> spillPathHealthCache;
 
     @Inject
     public FileSingleStreamSpillerFactory(Metadata metadata, SpillerStats spillerStats, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig)
@@ -168,7 +170,15 @@ public class FileSingleStreamSpillerFactory
             spillCipher = Optional.of(new AesSpillCipher());
         }
         PagesSerde serde = serdeFactory.createPagesSerdeForSpill(spillCipher);
-        return new FileSingleStreamSpiller(serde, executor, getNextSpillPath(), spillerStats, spillContext, memoryContext, spillCipher);
+        return new FileSingleStreamSpiller(
+                serde,
+                executor,
+                getNextSpillPath(),
+                spillerStats,
+                spillContext,
+                memoryContext,
+                spillCipher,
+                this::clearDiskHealthCache);
     }
 
     private synchronized Path getNextSpillPath()
@@ -214,5 +224,9 @@ public class FileSingleStreamSpillerFactory
             log.warn(e, "Health check failed for spill %s", path);
             return false;
         }
+    }
+
+    private void clearDiskHealthCache() {
+        spillPathHealthCache.invalidateAll();
     }
 }
